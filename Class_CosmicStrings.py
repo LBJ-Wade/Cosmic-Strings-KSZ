@@ -20,15 +20,13 @@ __email__ = "gch24@alumnos.unican.es"
 
 
 import numpy as np #Maths arrays and more, matlab-type vectors/arrays
-import subprocess #calling to the terminal
-import sys #Strings inputs
 import matplotlib.pyplot as plt #Plot Libraries
 import math #mathematical functions
-import subprocess #calling to the terminal
 from astropy.modeling import models, fitting #Package for fitting functions with a astronomical character
-import warnings #Advices
 import random #pseudo-random generator
 from astropy.io import fits #Open and Reading FITS Files usign astropy
+from scipy import fftpack
+import pylab as py
 
 
 """
@@ -193,8 +191,8 @@ class CosmicStrings(object):
         Method that writes and generates the new .fits picture that contains the new celestials objects using Astropy library at http://astropy.readthedocs.org/en/latest/io/fits/index.html?highlight=fits#module-astropy.io.fits
         
     """
-    def get_simulation_picture(self, ID_number, PICTURE):
-        self.simulation_picture = '{}_simulation_{}.fits'.format(PICTURE, ID_number)
+    def get_simulation_picture(self, ID_number, PICTURE, tension):
+        self.simulation_picture = '{}_simulation_{}_{}.fits'.format(PICTURE, ID_number, tension)
         fits.writeto(self.simulation_picture, self.M_field_view)
     
     
@@ -209,7 +207,7 @@ class CosmicStrings(object):
         
         self.M_field_expanded=0
         
-        print 'Number of Strings: %d' % N_s
+        #print 'Number of Strings: %d' % N_s
         
         #self.N_hubble[k]=N_h
         #self.N_strings[k]=N_s
@@ -233,7 +231,7 @@ class CosmicStrings(object):
         #Throw strings according to the number of strings N_s
         for string in range (0, N_s):
             
-            print 'number of string  in loop: %d' % string
+            #print 'number of string  in loop: %d' % string
             
             # Calculate the coordenates of (x,y) randomly at which the string will be plotted
             ll = np.random.random_integers(0, self.L_pixels+2*int(d), (2))
@@ -242,7 +240,7 @@ class CosmicStrings(object):
             
             l=self.string_proyection(d)
             
-            print 'l=%f' % l
+            #print 'l=%f' % l
             
             # Throw a random orientation to plot
             
@@ -252,12 +250,12 @@ class CosmicStrings(object):
             
             if flag_theta < 0.5:
                 theta=np.random.rand(1)*(-np.pi/2)
-                print 'theta=%f' % theta
+                #print 'theta=%f' % theta
             elif flag_theta > 0.5:
                 theta=np.random.rand(1)*(np.pi/2)
-                print 'theta=%f' % theta
+                #print 'theta=%f' % theta
             
-            print 'theta FINAL=%f' % theta
+            #print 'theta FINAL=%f' % theta
 
             # evaluate theta and return boolean for mat
 
@@ -279,7 +277,7 @@ class CosmicStrings(object):
                 mat[rhom_prime] = value_temperature
 
 
-            print 'I am here after T'
+            #print 'I am here after T'
 
 
 
@@ -305,13 +303,107 @@ class CosmicStrings(object):
             
             central_part=self.cosmic_strings_creator(time)
             self.M_field_view=self.M_field_view+central_part
-        self.get_simulation_picture(self.G_mu, 'CosmicStringsMap')
+        
+        self.get_simulation_picture(self.n, 'CosmicStringsMap', self.G_mu)
 
-#       plt.figure(figsize=(10,10))
-#       plt.imshow(self.M_field_view, origin='lower')
-#       plt.colorbar()
-#       plt.show()
+        plt.figure(figsize=(10,10))
+        plt.imshow(self.M_field_view, origin='lower')
+        plt.colorbar()
+        plt.show()
 
+
+
+
+class PowerSpectrum(object):
+    
+    """
+        Constructor that save into attributes main values for obtaining the power spectrum of the map
+        
+    """
+    
+    def __init__(self, map):
+        self.map=map
+        self.fourier_map=[]
+    
+    """
+        Method that plots the 2-D Fourier Transform and shift
+        
+    """
+    
+    def fourier_transform(self):
+        fourier=fftpack.fft2(self.map)
+        self.fourier_map(fourier) #to center in zero
+    
+    
+    
+    """
+        Calculate the azimuthally averaged radial profile.
+        
+        image - The 2D image
+        center - The [x,y] pixel coordinates used as the center. The default is
+        None, which then uses the center of the image (including
+        fracitonal pixels).
+        
+    """
+    
+    
+    def azimuthalAverage(self, image, center=None):
+
+        # Calculate the indices from the image
+        y, x = np.indices(image.shape)
+    
+        if not center:
+            center = np.array([(x.max()-x.min())/2.0, (x.max()-x.min())/2.0])
+    
+        r = np.hypot(x - center[0], y - center[1])
+
+        # Get sorted radii
+        ind = np.argsort(r.flat)
+        r_sorted = r.flat[ind]
+        i_sorted = image.flat[ind]
+    
+        # Get the integer part of the radii (bin size = 1)
+        r_int = r_sorted.astype(int)
+        
+        # Find all pixels that fall within each radial bin.
+        deltar = r_int[1:] - r_int[:-1]  # Assumes all radii represented
+        rind = np.where(deltar)[0]       # location of changed radius
+        nr = rind[1:] - rind[:-1]        # number of radius bin
+        
+        # Cumulative sum to figure out sums for each radius bin
+        csim = np.cumsum(i_sorted, dtype=float)
+        tbin = csim[rind[1:]] - csim[rind[:-1]]
+        
+        radial_prof = tbin / nr
+        
+        return radial_prof
+    
+    
+    def power_spectrum(self):
+        self.fourier_transform()
+        self.ps2D = np.abs(self.fourier_map)**2
+        self.ps1D = self.azimuthalAverage(self.psd2D)
+    
+    
+    def plotter_fft(self):
+        
+        self.power_spectrum()
+        
+        py.figure(1)
+        py.clf()
+        py.imshow( np.log10(self.map), cmap=py.cm.Greys)
+
+        py.figure(2)
+        py.clf()
+        py.imshow( np.log10(self.ps2D))
+
+        py.figure(3)
+        py.clf()
+        py.semilogy( self.ps1D )
+        py.xlabel('Spatial Frequency')
+        py.ylabel('Power Spectrum')
+
+        py.show()
 
 
 
