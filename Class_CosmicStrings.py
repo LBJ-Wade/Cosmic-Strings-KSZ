@@ -27,7 +27,8 @@ import random #pseudo-random generator
 from astropy.io import fits #Open and Reading FITS Files usign astropy
 from scipy import fftpack
 import pylab as py
-
+from radial_data import radial_data
+from PowerSpectrumGit import radialAverageBins
 
 """
     General Class that contents several methods destinated to plot CosmicStrings
@@ -321,9 +322,29 @@ class PowerSpectrum(object):
         
     """
     
-    def __init__(self, map):
-        self.map=map
+    def __init__(self, name=''):
+        self.name=name
+        self.map=[]
         self.fourier_map=[]
+        self.radbins=0
+        self.az=0
+        self.radavlist=0
+    
+    """
+        Method that open fits files
+        
+    """
+    
+    
+    def open_read_picture(self, picture):
+        hdulist_data_image=fits.open(picture, memmap=True)
+        self.x_data_image=hdulist_data_image[0].header['NAXIS1']
+        self.y_data_image=hdulist_data_image[0].header['NAXIS2']
+        print 'The picture has a size of ({}x{})\n'.format(self.x_data_image, self.y_data_image)
+        self.picture_data = hdulist_data_image[0].data
+        self.map=self.picture_data-np.mean(self.picture_data)
+    #self.map=self.picture_data
+    
     
     """
         Method that plots the 2-D Fourier Transform and shift
@@ -332,7 +353,7 @@ class PowerSpectrum(object):
     
     def fourier_transform(self):
         fourier=fftpack.fft2(self.map)
-        self.fourier_map(fourier) #to center in zero
+        self.fourier_map=fftpack.fftshift(fourier) #to center in zero
     
     
     
@@ -355,6 +376,7 @@ class PowerSpectrum(object):
         if not center:
             center = np.array([(x.max()-x.min())/2.0, (x.max()-x.min())/2.0])
     
+        # Calculate radii
         r = np.hypot(x - center[0], y - center[1])
 
         # Get sorted radii
@@ -380,10 +402,14 @@ class PowerSpectrum(object):
     
     
     def power_spectrum(self):
+        self.open_read_picture(self.name)
         self.fourier_transform()
         self.ps2D = np.abs(self.fourier_map)**2
-        self.ps1D = self.azimuthalAverage(self.psd2D)
-    
+        self.ps1D = self.azimuthalAverage(self.ps2D)
+        
+        #self.az, self.radavlist=radialAverageBins(self.ps2D, 25, corners=True, center=None)
+        
+        self.ps1D_prime=radial_data(self.ps2D, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
     
     def plotter_fft(self):
         
@@ -391,25 +417,77 @@ class PowerSpectrum(object):
         
         py.figure(1)
         py.clf()
-        py.imshow( np.log10(self.map), cmap=py.cm.Greys)
+        py.imshow(self.map, origin='lower')
+        py.colorbar()
 
         py.figure(2)
         py.clf()
-        py.imshow( np.log10(self.ps2D))
+        py.imshow(self.ps2D, origin='lower')
+
+        #METODO GUADALUPE
 
         py.figure(3)
         py.clf()
-        py.semilogy( self.ps1D )
+        py.semilogy(self.ps1D )
+        #py.plot(self.ps1D )
+        py.xlabel('Spatial Frequency')
+        py.ylabel('Power Spectrum')
+        
+        
+        py.figure(4)
+        py.clf()
+        l=np.linspace(0, 359, 360)
+        l_change=l*(l+1)
+        py.semilogy(l, self.ps1D*l_change, 'k.')
+        #py.plot(self.ps1D )
+        py.xlabel('l')
+        py.ylabel('(Power Spectrum)*l(l+1)')
+        
+        #METODO ASTROPY
+
+        py.figure(5)
+        py.clf()
+        py.semilogy(self.ps1D_prime.r, self.ps1D_prime.mean)
+        #py.plot(self.ps1D_prime)
+        py.xlabel('Spatial Frequency')
+        py.ylabel('Power Spectrum')
+        
+        
+        py.figure(6)
+        py.clf()
+        l_change_prime=self.ps1D_prime.r*(self.ps1D_prime.r+1)
+        py.semilogy(self.ps1D_prime.r, self.ps1D_prime.mean*l_change_prime, 'ko')
+        #py.plot(self.ps1D )
+        py.xlabel('l')
+        py.ylabel('(Power Spectrum)*l(l+1)')
+        
+        #METODO ASTROPY ---> Gaussian check
+        
+        map_random=np.random.random((512, 512))
+        fourier=fftpack.fft2(map_random)
+        fourier_2=fftpack.fftshift(fourier)
+        ps2D_random = np.abs(fourier_2)**2
+        #ps1D_random = self.azimuthalAverage(ps2D_random)
+        ps1D_random=radial_data(ps2D_random, annulus_width=2, working_mask=None, x=None, y=None, rmax=None)
+        
+        py.figure(7)
+        py.clf()
+        py.semilogy(ps1D_random.mean)
+        #py.plot(self.ps1D_prime)
         py.xlabel('Spatial Frequency')
         py.ylabel('Power Spectrum')
 
+
+        #METODO matlab --->
+        
+        #py.figure(8)
+        #py.clf()
+        #py.semilogy(self.radavlist[0], self.radavlist[1]*self.radavlist[0]*(self.radavlist[0]+1))
+        #py.plot(self.ps1D_prime)
+        #py.xlabel('Spatial Frequency')
+        #py.ylabel('Power Spectrum')
+
         py.show()
-
-
-
-
-
-
 
 
 
