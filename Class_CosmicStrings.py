@@ -28,7 +28,8 @@ from astropy.io import fits #Open and Reading FITS Files usign astropy
 from scipy import fftpack
 import pylab as py
 from radial_data import radial_data
-from PowerSpectrumGit import radialAverageBins
+from PowerSpectrumGit import radialAverageBins, radialAverage, azimuthalAverage
+import healpy as hp
 
 """
     General Class that contents several methods destinated to plot CosmicStrings
@@ -42,8 +43,8 @@ class CosmicStrings(object):
         
     """
     
-    def __init__(self, L=12.8, G_mu=1, n=15, gamma=1, v_bar=15):
-        self.G_mu=1
+    def __init__(self, L=12.8, G_mu=6.0E-8, n=15, gamma=1, v_bar=15):
+        self.G_mu=G_mu
         self.n=n
         self.gamma=gamma
         self.v_bar=v_bar
@@ -192,8 +193,8 @@ class CosmicStrings(object):
         Method that writes and generates the new .fits picture that contains the new celestials objects using Astropy library at http://astropy.readthedocs.org/en/latest/io/fits/index.html?highlight=fits#module-astropy.io.fits
         
     """
-    def get_simulation_picture(self, ID_number, PICTURE, tension):
-        self.simulation_picture = '{}_simulation_{}_{}.fits'.format(PICTURE, ID_number, tension)
+    def get_simulation_picture(self, ID_number, PICTURE, tension, loop_2):
+        self.simulation_picture = '{}_simulation_n{}_G{}_l{}.fits'.format(PICTURE, ID_number, tension, loop_2)
         fits.writeto(self.simulation_picture, self.M_field_view)
     
     
@@ -296,7 +297,7 @@ class CosmicStrings(object):
         Method that loop-for all periods of time
     """
         
-    def cosmic_looper(self):
+    def cosmic_looper(self, loop_2):
         # Make the loop to go for go to n=1 until n=n
         for time in range(1, self.n+1):
             
@@ -305,7 +306,7 @@ class CosmicStrings(object):
             central_part=self.cosmic_strings_creator(time)
             self.M_field_view=self.M_field_view+central_part
         
-        self.get_simulation_picture(self.n, 'CosmicStringsMap', self.G_mu)
+        self.get_simulation_picture(self.n, 'CosmicStringsMap', self.G_mu, loop_2)
 
         plt.figure(figsize=(10,10))
         plt.imshow(self.M_field_view, origin='lower')
@@ -329,6 +330,7 @@ class PowerSpectrum(object):
         self.radbins=0
         self.az=0
         self.radavlist=0
+        self.ps1D_cmb=0
     
     """
         Method that open fits files
@@ -409,7 +411,7 @@ class PowerSpectrum(object):
         
         #self.az, self.radavlist=radialAverageBins(self.ps2D, 25, corners=True, center=None)
         
-        self.ps1D_prime=radial_data(self.ps2D, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
+        self.ps1D_prime=radial_data(self.ps2D, annulus_width=20, working_mask=None, x=None, y=None, rmax=None)
     
     def plotter_fft(self):
         
@@ -426,22 +428,22 @@ class PowerSpectrum(object):
 
         #METODO GUADALUPE
 
-        py.figure(3)
-        py.clf()
-        py.semilogy(self.ps1D )
+        #py.figure(3)
+        #py.clf()
+        #py.semilogy(self.ps1D )
         #py.plot(self.ps1D )
-        py.xlabel('Spatial Frequency')
-        py.ylabel('Power Spectrum')
+        #py.xlabel('Spatial Frequency')
+        #py.ylabel('Power Spectrum')
         
         
-        py.figure(4)
-        py.clf()
-        l=np.linspace(0, 359, 360)
-        l_change=l*(l+1)
-        py.semilogy(l, self.ps1D*l_change, 'k.')
+        #py.figure(4)
+        #py.clf()
+        #l=np.linspace(0, 359, 360)
+        #l_change=l*(l+1)
+        #py.semilogy(l, self.ps1D*l_change, 'k.')
         #py.plot(self.ps1D )
-        py.xlabel('l')
-        py.ylabel('(Power Spectrum)*l(l+1)')
+        #py.xlabel('l')
+        #py.ylabel('(Power Spectrum)*l(l+1)')
         
         #METODO ASTROPY
 
@@ -464,6 +466,10 @@ class PowerSpectrum(object):
         #METODO ASTROPY ---> Gaussian check
         
         map_random=np.random.random((512, 512))
+        
+        np.savetxt('random.txt', map_random)
+        
+        
         fourier=fftpack.fft2(map_random)
         fourier_2=fftpack.fftshift(fourier)
         ps2D_random = np.abs(fourier_2)**2
@@ -486,6 +492,129 @@ class PowerSpectrum(object):
         #py.plot(self.ps1D_prime)
         #py.xlabel('Spatial Frequency')
         #py.ylabel('Power Spectrum')
+        
+        
+        # CMB LECTURE
+        map_1=hp.read_map('test.fits')
+        #map_2=hp.ud_grade(map_1, 256)
+        map=hp.smoothing(map_1, fwhm=0.001454)
+        
+        
+        LMAX = 2048
+        cmb_masked = hp.ma(map)
+        self.cmb_masked=cmb_masked
+        #cl = hp.anafast(cmb_masked.filled(), lmax=LMAX)
+        
+        #cl = hp.anafast(map, lmax=LMAX)
+        #ell = np.arange(len(cl))
+                    
+                    #plt.figure(8)
+                    #plt.plot(ell, cl)
+                    #plt.xlabel('ell'); plt.ylabel('ell(ell+1)cl'); plt.grid()
+                    #hp.write_cl('cl.fits', cl)
+
+        T_1=hp.visufunc.gnomview(map=map, fig=None, rot=None, coord=None, unit='', xsize=256, ysize=256, reso=3, title='Gnomonic view', nest=False, remove_dip=False, remove_mono=False, gal_cut=0, min=None, max=None, flip='astro', format='%.3g', cbar=True, cmap=None, norm=None, hold=False, sub=None, margins=None, notext=False, return_projected_map=True)
+        
+        
+        #
+        
+        
+        T=T_1-np.mean(T_1)
+        
+        np.savetxt('cmb.txt', T)
+        
+        #fourier_cmb=fftpack.fft2(T)
+        fourier_cmb=np.fft.fft2(T)
+        #fourier_2_cmb=fftpack.fftshift(fourier_cmb)
+        fourier_2_cmb=np.fft.fftshift(fourier_cmb)
+        
+        #fourier_2_cmb=fourier_cmb
+        
+        ps2D_cmb = np.abs(fourier_2_cmb)**2
+        self.ps2D_cmb=ps2D_cmb
+        #ps1D_random = self.azimuthalAverage(ps2D_random)
+        ps1D_cmb=radial_data(ps2D_cmb, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
+        #ps1D_cmb = self.azimuthalAverage(ps2D_cmb)
+        #ps1D_cmb = radialAverage(ps2D_cmb, center=[256, 256], stddev=False, returnAz=False, return_naz=False, binsize=10, weights=None, steps=False, interpnan=False, left=None, right=None, mask=None, symmetric=None )
+        
+        #ps1D_cmb=azimuthalAverage(ps2D_cmb, center=None, stddev=False, returnradii=False, return_nr=False, binsize=10, weights=None, steps=False, interpnan=False, left=None, right=None, mask=None )
+        
+
+        
+        
+        
+        
+        self.ps1D_cmb=ps1D_cmb
+
+#FreqCompRows = np.fft.fftfreq(len(ps1D_cmb), d=1.5)
+#        FreqCompCols = np.fft.fftfreq(len(ps1D_cmb), d=1.5)
+        
+        #        k=np.sqrt(FreqCompRows*FreqCompRows+FreqCompCols*FreqCompCols)
+        #k=FreqCompRows
+        
+        k=ps1D_cmb.r
+        
+        py.figure(9)
+        py.clf()
+        #k_change=k*(k+1)
+        py.semilogy(k, ps1D_cmb.mean, 'k-')
+        #py.semilogy(ps1D_cmb, 'k-')
+        #py.plot(self.ps1D )
+        py.xlabel('k')
+        py.ylabel('(Power Spectrum)*k(k+1)')
+
+        
+        py.figure(10)
+        py.clf()
+        py.imshow(T, origin='lower')
+        py.colorbar()
+        
+        
+        py.figure(11)
+        py.clf()
+        py.imshow(ps2D_cmb, origin='lower')
+        py.colorbar()
+
+        py.figure(12)
+        py.clf()
+        py.imshow(ps2D_random, origin='lower')
+        py.colorbar()
+        
+        
+        #py.figure(10)
+        #py.clf()
+        #l=k*360/(np.pi*2)
+        #l_change_prime=l*(l+1)
+        #py.semilogy(l, ps1D_cmb.mean*l_change_prime, 'ko')
+        #py.plot(self.ps1D )
+        #py.xlabel('l')
+        #py.ylabel('(Power Spectrum)*l(l+1)')
+        
+        
+        
+        
+        
+        #cl_t = hp.anafast(T, lmax=LMAX)
+        #ell = np.arange(len(cl))
+        
+        #plt.figure(9)
+        #plt.plot(ell, ell * (ell+1) * cl_t)
+        #plt.xlabel('ell'); plt.ylabel('ell(ell+1)cl'); plt.grid()
+        #hp.write_cl('cl.fits', cl)
+
+
+        
+        #py.figure(10)
+        #py.clf()
+        #l_change_prime=ps1D_cmb.r*(ps1D_cmb.r+1)
+#        py.semilogy(ps1D_cmb.r, ps1D_cmb.mean*l_change_prime, 'k-')
+        #py.plot(self.ps1D )
+        #        py.xlabel('l')
+        #py.ylabel('(Power Spectrum)*l(l+1)')
+
+
+
+
 
         py.show()
 

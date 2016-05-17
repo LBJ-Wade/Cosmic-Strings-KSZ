@@ -4,18 +4,22 @@ import time
 print 'Starting Simulation'
 
 
+
+
 #t = time.time()
-#simulation=CosmicStrings(L=12.8, G_mu=6.0E-8, n=10, gamma=1, v_bar=15)
-#simulation.cosmic_looper()
-#simulation.cosmic_strings_creator(1)
+
+
+#for i in range (0, 50000)
+#    simulation=CosmicStrings(L=12.8, G_mu=6.0E-8, n=10, gamma=1, v_bar=15)
+#    simulation.cosmic_looper('i')
+
+
 #elapsed = time.time() - t
 #print elapsed
 
 
-fft=PowerSpectrum(name='CosmicStringsMap_simulation_10_G1.fits')
+
+
+fft=PowerSpectrum(name='CosmicStringsMap_simulation_15_G1.fits')
 fft.plotter_fft()
-
-
-
-
 
