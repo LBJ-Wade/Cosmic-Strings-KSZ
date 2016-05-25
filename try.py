@@ -20,6 +20,6 @@ print 'Starting Simulation'
 
 
 
-fft=PowerSpectrum(name='CosmicStringsMap_simulation_15_G1.fits')
+fft=PowerSpectrum(name='CosmicStringsMap_simulation_10_G6Eminus08.fits')
 fft.plotter_fft()
 
