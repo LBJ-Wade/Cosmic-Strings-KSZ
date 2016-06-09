@@ -43,22 +43,35 @@ class CosmicStrings(object):
         
     """
     
-    def __init__(self, L=12.8, G_mu=6.0E-8, n=15, gamma=1, v_bar=15):
+    def __init__(self, L=12.8, G_mu=6.0E-8, n=15, gamma=1, v_bar=0.15):
         self.G_mu=G_mu
         self.n=n
         self.gamma=gamma
         self.v_bar=v_bar
         self.L=L
+        
         self.d_0=1.8
         self.N=10 #input parameter of strings
-        self.N_hubble=[]
-        self.N_strings=[]
         self.M_field_expanded=[]
         self.d_0_pixels=72
         self.L_pixels=512
         self.pixel_size=0.025
         self.M_field_view=np.zeros((self.L_pixels, self.L_pixels))
         self.simulation_picture=''
+    
+    
+        self.N_hubble=[]
+        self.N_strings=[]
+        self.d=[]
+        self.alpha=[]
+        self.theta=[]
+        self.coordinates=[]
+        self.temperature_flag=[]
+        self.r=[]
+        self.L_extended_size=[]
+    
+    
+    
 
     """
         Method that defines temperature fluctuation of the string
@@ -66,6 +79,7 @@ class CosmicStrings(object):
     """
     def temperature_fluctuation(self, T=2.726):
         r=np.random.rand(1) #flag r ---> to consider different velocities
+        self.r.append(r)
         return r*self.v_bar*4*np.pi*self.G_mu
 
 
@@ -75,7 +89,7 @@ class CosmicStrings(object):
     """
 
     def hubble_radius(self, m):
-        d=self.d_0_pixels*np.exp(m/3) # m is the index of n
+        d=self.d_0_pixels*np.exp(m/3.) # m is the index of n
         return d
 
     """
@@ -98,6 +112,7 @@ class CosmicStrings(object):
         
     def string_proyection(self, d):
         alpha=np.random.rand(1)*(np.pi/2)
+        self.alpha.append(alpha)
         string_end=self.gamma*np.cos(alpha)*d
         return string_end
 
@@ -211,11 +226,12 @@ class CosmicStrings(object):
         
         #print 'Number of Strings: %d' % N_s
         
-        #self.N_hubble[k]=N_h
-        #self.N_strings[k]=N_s
+        self.N_hubble.append(N_h)
+        self.N_strings.append(N_s)
 
         # Calculate d hubble_radius
         d=self.hubble_radius(k)
+        self.d.append(d)
         
         
         # Create matrix with positions x_m and y_m
@@ -237,6 +253,7 @@ class CosmicStrings(object):
             
             # Calculate the coordenates of (x,y) randomly at which the string will be plotted
             ll = np.random.random_integers(0, self.L_pixels+2*int(d), (2))
+            self.coordinates.append(ll)
             
             # Calculate the length of the string to throw
             
@@ -256,6 +273,9 @@ class CosmicStrings(object):
             elif flag_theta > 0.5:
                 theta=np.random.rand(1)*(np.pi/2)
                 #print 'theta=%f' % theta
+                
+                
+            self.theta.append(theta)
             
             #print 'theta FINAL=%f' % theta
 
@@ -281,13 +301,22 @@ class CosmicStrings(object):
 
             #print 'I am here after T'
 
-
+            self.temperature_flag.append(value_temperature)
 
             #Save the value of the string in the matrix
             self.M_field_expanded=self.M_field_expanded+mat
         
         #Save only the central part of the expanded field of view
+        
+        
         central_part=self.M_field_expanded[int(d):self.L_pixels+int(d), int(d):self.L_pixels+int(d)]
+        
+        #self.N_hubble=[]
+        #self.N_strings=[]
+        self.d.append(d)
+
+        
+        
         
         return central_part
         
@@ -331,6 +360,8 @@ class PowerSpectrum(object):
         self.az=0
         self.radavlist=0
         self.ps1D_cmb=0
+        self.psD2_n=0
+    
     
     """
         Method that open fits files
@@ -410,8 +441,13 @@ class PowerSpectrum(object):
         self.map=self.map-np.mean(self.map)
         self.fourier_transform(self.map)
         self.ps2D = np.abs(self.fourier_map)**2
+        
+	#normalization=(512*1.5*np.pi/(1.5*512)*60*180/np.pi)**2
+
+	normalization=(512*512)
+        self.psD2_n=self.ps2D/normalization
         self.ps1D = self.azimuthalAverage(self.ps2D)
-        self.ps1D_prime=radial_data(self.ps2D, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
+        self.ps1D_prime=radial_data(self.ps2D/normalization, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
     
     def plotter_fft(self):
         
@@ -422,8 +458,12 @@ class PowerSpectrum(object):
         
         py.figure(1)
         py.clf()
-        py.imshow(self.map, origin='lower', cmap='hot',  vmin=-150000, vmax=150000)
+        #py.imshow(self.map, origin='lower', cmap='hot',  vmin=-150000, vmax=150000)
+        py.imshow(self.map, origin='lower', cmap='hot')
         py.colorbar()
+
+	#print "Dispersion cosmic map %f" np.std(self.map)
+	
         
         #Plot PSD2
 
@@ -435,19 +475,22 @@ class PowerSpectrum(object):
         
         #ASTROPY ---> Gaussian check
         
-        #map_random=np.random.randn(512, 512)
+        map_random=np.random.standard_normal(size=(512,512))
         #
-        #fourier=fftpack.fft2(map_random)
-        #fourier_2=fftpack.fftshift(fourier)
-        #ps2D_random = np.abs(fourier_2)**2
-#ps1D_random=radial_data(ps2D_random, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
+        fourier=fftpack.fft2(map_random)
+        fourier_2=fftpack.fftshift(fourier)
+        ps2D_random = np.abs(fourier_2)**2
+        ps1D_random=radial_data(ps2D_random, annulus_width=1, working_mask=None, x=None, y=None, rmax=None)
         
-        #py.figure(3)
-        #py.clf()
-        #py.semilogy(ps1D_random.r,ps1D_random.mean)
-        #py.xlabel('Spatial Frequency')
-        #py.ylabel('Power Spectrum')
-        #py.title('Random Distribution')
+        py.figure(3)
+        py.clf()
+        
+        print np.mean(ps1D_random.mean)
+        
+        py.plot(ps1D_random.r, ps1D_random.mean)
+        py.xlabel('Spatial Frequency')
+        py.ylabel('Power Spectrum')
+        py.title('Random Distribution')
         
         
         #HEALPY ---> CMB Check
@@ -553,18 +596,19 @@ class PowerSpectrum(object):
         #py.title('Power Spectrum CMB Radial Power Spectrum')
         
         
-        
+
         
         k_prime=self.ps1D_prime.r*2*np.pi/(1.5*512)*60*180/np.pi
         
         py.figure(8)
         py.clf()
         k_change_prime=k_prime*(k_prime+1)
-        py.plot(k_prime, self.ps1D_prime.mean*k_change_prime, 'k-')
+        py.semilogy(k_prime, self.ps1D_prime.mean*k_change_prime, 'k-')
         py.xlabel('l')
         py.title('Cosmic Strings Power Spectrum')
         py.ylabel('Cl*l(l+l)')
-
+        #py.xlim(0,220)
+        #py.ylim(1E21, 1E23)
         
 
         py.show()
